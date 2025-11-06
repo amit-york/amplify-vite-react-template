@@ -1,0 +1,15 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-doramatrix-dev-f1e82-authRole",
+      "UnauthRoleArn": "arn:aws:iam::533267142974:role/amplify-doramatrix-dev-f1e82-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::533267142974:role/amplify-doramatrix-dev-f1e82-authRole",
+      "Region": "us-west-2",
+      "DeploymentBucketName": "amplify-doramatrix-dev-f1e82-deployment",
+      "UnauthRoleName": "amplify-doramatrix-dev-f1e82-unauthRole",
+      "StackName": "amplify-doramatrix-dev-f1e82",
+      "StackId": "arn:aws:cloudformation:us-west-2:533267142974:stack/amplify-doramatrix-dev-f1e82/e27a1200-bb1a-11f0-8b7b-06f8f787945f",
+      "AmplifyAppId": "dou9n1gad5kmj"
+    }
+  }
+}
