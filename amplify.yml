@@ -16,21 +16,28 @@ frontend:
         - npm ci --cache .npm --prefer-offline
     build:
       commands:
+        - echo "Fetching Git version and build date..."
         - VERSION=$(git describe --tags --abbrev=0 || echo "no-tag")
         - RELEASE_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+        # ✅ Safely update build_info.json file
         - |
           echo "{
             \"version\": \"$VERSION\",
             \"releaseDate\": \"$RELEASE_DATE\"
           }" > build_info.json
+
         - echo "📦 Build Info Updated:"
         - cat build_info.json
         - npm run build
-        # Optional Git commit & push
+
+        # ✅ Git configuration (you can use your name/email)
         - git config --global user.name "Amit Meshram"
         - git config --global user.email "amitm@york.ie"
+
+        # ✅ Commit safely (colon is inside single quotes!)
         - git add build_info.json
-        - git commit -m "chore: update build_info.json for $AWS_BRANCH ($VERSION)" || echo "No changes to commit"
+        - 'git commit -m "chore: update build_info.json for $AWS_BRANCH ($VERSION)" || echo "No changes to commit"'
         - git push origin HEAD:$AWS_BRANCH || echo "No permission to push"
   artifacts:
     baseDirectory: dist
