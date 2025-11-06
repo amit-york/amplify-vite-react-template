@@ -1,12 +1,59 @@
-version: 1
+# version: 1
 
-backend:
-  phases:
-    build:
-      commands:
-        - echo "Starting backend build..."
-        - npm ci --cache .npm --prefer-offline
-        - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+# backend:
+#   phases:
+#     build:
+#       commands:
+#         - echo "Starting backend build..."
+#         - npm ci --cache .npm --prefer-offline
+#         - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+
+# frontend:
+#   phases:
+#     preBuild:
+#       commands:
+#         - echo "Installing dependencies..."
+#         - npm ci --cache .npm --prefer-offline
+#     build:
+#       commands:
+#         - echo "Fetching Git version and build date..."
+#         - VERSION=$(git describe --tags --abbrev=0 || echo "no-tag")
+#         - RELEASE_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+#         # ✅ Safely update build_info.json file in repo root
+#         - |
+#           echo "{
+#             \"version\": \"$VERSION\",
+#             \"releaseDate\": \"$RELEASE_DATE\"
+#           }" > build_info.json
+
+#         - echo "📦 Build Info Updated:"
+#         - cat build_info.json
+#         - npm run build
+
+#         # ✅ Git configuration
+#         - git config --global user.name "Amit Meshram"
+#         - git config --global user.email "amitm@york.ie"
+
+#         # ✅ Commit updated file if changed
+#         - git add build_info.json
+#         - 'git commit -m "chore: update build_info.json for $AWS_BRANCH ($VERSION)" || echo "No changes to commit"'
+
+#         # ✅ Push commit securely using PAT stored as env var
+#         - git remote set-url origin "https://${GITHUB_TOKEN}@github.com/amit-york/amplify-vite-react-template.git"
+#         - git push origin HEAD:$AWS_BRANCH || echo "No permission to push"
+#   artifacts:
+#     baseDirectory: dist
+#     files:
+#       - '**/*'
+#       - build_info.json
+#   cache:
+#     paths:
+#       - .npm/**/*
+#       - node_modules/**/*
+
+
+version: 1
 
 frontend:
   phases:
@@ -16,38 +63,15 @@ frontend:
         - npm ci --cache .npm --prefer-offline
     build:
       commands:
-        - echo "Fetching Git version and build date..."
-        - VERSION=$(git describe --tags --abbrev=0 || echo "no-tag")
-        - RELEASE_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-
-        # ✅ Safely update build_info.json file in repo root
-        - |
-          echo "{
-            \"version\": \"$VERSION\",
-            \"releaseDate\": \"$RELEASE_DATE\"
-          }" > build_info.json
-
-        - echo "📦 Build Info Updated:"
-        - cat build_info.json
+        - echo "Running custom hook..."
+        - npm run my-hook         # 👈 runs your hook script
+        - echo "Building frontend..."
         - npm run build
-
-        # ✅ Git configuration
-        - git config --global user.name "Amit Meshram"
-        - git config --global user.email "amitm@york.ie"
-
-        # ✅ Commit updated file if changed
-        - git add build_info.json
-        - 'git commit -m "chore: update build_info.json for $AWS_BRANCH ($VERSION)" || echo "No changes to commit"'
-
-        # ✅ Push commit securely using PAT stored as env var
-        - git remote set-url origin "https://${GITHUB_TOKEN}@github.com/amit-york/amplify-vite-react-template.git"
-        - git push origin HEAD:$AWS_BRANCH || echo "No permission to push"
   artifacts:
     baseDirectory: dist
     files:
       - '**/*'
-      - build_info.json
   cache:
     paths:
-      - .npm/**/*
       - node_modules/**/*
+      - .npm/**/*
