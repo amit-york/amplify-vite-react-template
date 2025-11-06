@@ -20,7 +20,7 @@ frontend:
         - VERSION=$(git describe --tags --abbrev=0 || echo "no-tag")
         - RELEASE_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
-        # ✅ Safely update build_info.json file
+        # ✅ Safely update build_info.json file in repo root
         - |
           echo "{
             \"version\": \"$VERSION\",
@@ -31,13 +31,16 @@ frontend:
         - cat build_info.json
         - npm run build
 
-        # ✅ Git configuration (you can use your name/email)
+        # ✅ Git configuration
         - git config --global user.name "Amit Meshram"
         - git config --global user.email "amitm@york.ie"
 
-        # ✅ Commit safely (colon is inside single quotes!)
+        # ✅ Commit updated file if changed
         - git add build_info.json
         - 'git commit -m "chore: update build_info.json for $AWS_BRANCH ($VERSION)" || echo "No changes to commit"'
+
+        # ✅ Push commit securely using PAT stored as env var
+        - git remote set-url origin https://$GITHUB_TOKEN@github.com/amit-york/amplify-vite-react-template.git
         - git push origin HEAD:$AWS_BRANCH || echo "No permission to push"
   artifacts:
     baseDirectory: dist
