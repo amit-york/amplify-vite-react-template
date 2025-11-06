@@ -18,17 +18,25 @@ frontend:
       commands:
         - VERSION=$(git describe --tags --abbrev=0 || echo "no-tag")
         - RELEASE_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-        # ✅ Safely create build_info.json (multi-line syntax avoids YAML parsing issues)
         - |
-          printf '{"version": "%s", "releaseDate": "%s"}' "$VERSION" "$RELEASE_DATE" > build_info.json
-        - echo "📦 Build Info:"
+          echo "{
+            \"version\": \"$VERSION\",
+            \"releaseDate\": \"$RELEASE_DATE\"
+          }" > build_info.json
+        - echo "📦 Build Info Updated:"
         - cat build_info.json
         - npm run build
+        # Optional Git commit & push
+        - git config --global user.name "Amit Meshram"
+        - git config --global user.email "amitm@york.ie"
+        - git add build_info.json
+        - git commit -m "chore: update build_info.json for $AWS_BRANCH ($VERSION)" || echo "No changes to commit"
+        - git push origin HEAD:$AWS_BRANCH || echo "No permission to push"
   artifacts:
     baseDirectory: dist
     files:
       - '**/*'
-      - ../build_info.json
+      - build_info.json
   cache:
     paths:
       - .npm/**/*

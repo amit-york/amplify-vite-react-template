@@ -3,10 +3,10 @@
 // Do not edit manually — changes will be overwritten on next deploy
 
 export const AppConfig = {
-  version: "v1.0.0",
-  commit: "6dd78c5d7e3fd35a7d887381be8e7d5b06618cb1",
+  version: "v1.0.0-5-g264885e",
+  commit: "264885e4896d2363308e01105c46fad45892e17f",
   branch: "main",
-  releaseDate: "2025-11-05T13:20:44.780Z"
+  releaseDate: "2025-11-06T08:44:13.596Z"
 };
 
 export default AppConfig;
