@@ -81,5 +81,6 @@ async function storeGitTagInfo() {
   }
 }
 
-// Run script
+//
+//  Run script
 storeGitTagInfo();
