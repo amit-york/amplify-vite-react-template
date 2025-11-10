@@ -280,7 +280,7 @@ function readFilteredIssue(filePath) {
     const issues = xlsx.utils.sheet_to_json(sheet);
 
     // 🔍 Filter only ENG-101
-    const filtered = issues.filter((row) => row.issue_key === "ENG-101");
+    const filtered = issues.filter((row) => row.Status === "DONE");
 
     console.log(`📦 Found ${filtered.length} matching Jira issue(s):`, filtered.map(i => i.issue_key));
     return filtered;
@@ -343,7 +343,6 @@ async function storeGitTagAndJiraIssues() {
     console.log("💾 Inserting Jira issue ENG-101 into DB...");
     for (const issue of issues) {
       const { issue_key, summary, resolution_date, assignee } = issue;
-
       await pool.query(
         `INSERT INTO jira_issues (issue_key, summary, resolution_date, assignee, tag)
          VALUES ($1, $2, $3, $4, $5)
