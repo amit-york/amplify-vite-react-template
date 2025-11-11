@@ -4,7 +4,7 @@ frontend:
     preBuild:
       commands:
         - echo "Installing dependencies..."
-        - npm ci --cache .npm --prefer-offline
+        - npm i
         - echo "Fetching all Git tags for release info..."
         - git fetch --tags --force
     build:
