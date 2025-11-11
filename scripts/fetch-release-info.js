@@ -28,8 +28,6 @@ function getRepoName() {
   return match[1];
 }
 
-// const stringData  = 'ticket eng-212: there is demo purpose';
-// console.log(stringData.split(":")[0].split(" ")[1].trim())
 /**
  * Get the latest commit SHA.
  */
@@ -38,7 +36,48 @@ function getLatestCommitSHA() {
 }
 
 /**
- * Fetch commit and PR details from GitHub.
+ * Extract ticket from commit message.
+ * Expected format: "ticket ENG-212: description" or similar
+ */
+function extractTicketFromCommitMessage(commitMessage) {
+  if (!commitMessage) return null;
+  
+  try {
+    // Extract ticket from commit message (e.g., "ticket eng-212: description" -> "eng-212")
+    const parts = commitMessage.split(":")[0].trim().split(" ");
+    const ticketIndex = parts.findIndex(part => 
+      part.toLowerCase().includes("ticket") || 
+      part.toLowerCase().includes("eng-") ||
+      /^[A-Z]+-\d+$/i.test(part)
+    );
+    
+    if (ticketIndex !== -1) {
+      // If "ticket" keyword found, get the next part
+      if (parts[ticketIndex].toLowerCase() === "ticket" && parts[ticketIndex + 1]) {
+        return parts[ticketIndex + 1].trim().toUpperCase();
+      }
+      // If ticket format found directly (e.g., "ENG-212")
+      if (/^[A-Z]+-\d+$/i.test(parts[ticketIndex])) {
+        return parts[ticketIndex].trim().toUpperCase();
+      }
+    }
+    
+    // Fallback: try to find any pattern like ENG-XXX in the first line
+    const firstLine = commitMessage.split("\n")[0];
+    const ticketMatch = firstLine.match(/([A-Z]+-\d+)/i);
+    if (ticketMatch) {
+      return ticketMatch[1].toUpperCase();
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("❌ Error extracting ticket from commit message:", error.message);
+    return null;
+  }
+}
+
+/**
+ * Fetch commit details from GitHub using SHA hash.
  */
 async function fetchGitHubData() {
   const repo = getRepoName();
@@ -59,38 +98,27 @@ async function fetchGitHubData() {
   const commitRes = await fetch(`https://api.github.com/repos/${repo}/commits/${sha}`, { headers });
   const commitData = await commitRes.json();
 
+  const commitMessage = commitData.commit?.message || "";
+  const ticket = extractTicketFromCommitMessage(commitMessage);
+
   const commitInfo = {
     sha: commitData.sha,
     author: commitData.commit?.author.name,
     email: commitData.commit?.author.email,
     date: commitData.commit?.author.date,
-    message: commitData.commit?.message,
+    message: commitMessage,
     url: commitData.html_url,
+    ticket: ticket,
   };
 
   console.log("✅ Latest Commit Details:");
   console.log(commitInfo);
-
-  // Fetch PR info associated with this commit
-  const prRes = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
-    headers: { ...headers, Accept: "application/vnd.github.groot-preview+json" },
-  });
-  const prData = await prRes.json();
-
-  if (prData.length > 0) {
-    const pr = prData[0];
-    console.log("PR",pr);
-    return {
-      number: pr.number,
-      title: pr.title,
-      description: pr.body || "No description provided.",
-      author: pr.user.login,
-      url: pr.html_url,
-      ticket:pr.body.split(":")[0].split(" ")[1].trim()
-    }
-  } else {
-    console.log("\n⚠️ No Pull Request found for this commit.");
+  
+  if (!ticket) {
+    console.log("\n⚠️ No ticket found in commit message.");
   }
+
+  return commitInfo;
 }
 /**
  * Fetch latest Git tag and release date.
@@ -122,8 +150,8 @@ async function storeGitTagAndJiraIssues() {
   }
 
   try {
-    const gitPullRequestConfigData = await fetchGitHubData()
-    console.log(gitPullRequestConfigData?.ticket)
+    const commitData = await fetchGitHubData()
+    console.log(`🎫 Extracted ticket: ${commitData?.ticket || "N/A"}`)
     console.log("🧱 Ensuring tables exist...");
     
     await pool.query(`
@@ -143,7 +171,7 @@ async function storeGitTagAndJiraIssues() {
       `INSERT INTO doraMatrixInfo (tag, ticket, release_date)
        VALUES ($1, $2, $3)
        ON CONFLICT (tag) DO UPDATE SET release_date = EXCLUDED.release_date;`,
-      [tag, gitPullRequestConfigData?.ticket, releaseDate]
+      [tag, commitData?.ticket || "N/A", releaseDate]
     );
 
     // Read and filter ENG-101 issue only
