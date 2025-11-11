@@ -108,6 +108,8 @@ function getGitTagInfo() {
   }
 }
 
+
+
 /**
  * Store Git tag and Jira issues in DB.
  */
