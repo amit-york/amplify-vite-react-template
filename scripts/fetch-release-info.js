@@ -173,29 +173,60 @@ async function storeGitTagAndJiraIssues() {
     console.log(`🎫 Extracted ticket: ${commitData?.ticket || "N/A"}`);
     console.log("🧱 Ensuring tables exist...");
     
+    // Create table if it doesn't exist
     await pool.query(`
       CREATE TABLE IF NOT EXISTS doraMatrixInfo (
         id SERIAL PRIMARY KEY,
-        tag VARCHAR(50) UNIQUE NOT NULL,
-        ticket VARCHAR(50) UNIQUE NOT NULL,
+        tag VARCHAR(50) NOT NULL,
+        ticket VARCHAR(50) NOT NULL,
         release_date TIMESTAMPTZ NOT NULL,
         inserted_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
+    // Remove UNIQUE constraints if they exist (migration for existing tables)
+    try {
+      // Find and drop all unique constraints (for migrating existing tables)
+      const constraintQuery = await pool.query(`
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'doraMatrixInfo'::regclass
+        AND contype = 'u';
+      `);
+      
+      if (constraintQuery.rows.length > 0) {
+        for (const row of constraintQuery.rows) {
+          await pool.query(`ALTER TABLE doraMatrixInfo DROP CONSTRAINT IF EXISTS ${row.conname};`);
+          console.log(`✅ Dropped unique constraint: ${row.conname}`);
+        }
+      }
+    } catch (error) {
+      // Constraints might not exist, which is fine for new tables
+      console.log("ℹ️ No unique constraints to remove.");
+    }
+
     console.log("✅ Tables ready.");
 
-    // Insert Git release info
-    await pool.query(
-      `INSERT INTO doraMatrixInfo (tag, ticket, release_date)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (tag) DO UPDATE SET 
-         ticket = EXCLUDED.ticket,
-         release_date = EXCLUDED.release_date;`,
+    // Upsert Git release info (update if exists, insert if not)
+    // Since we removed UNIQUE constraints, we use a manual upsert pattern
+    const updateResult = await pool.query(
+      `UPDATE doraMatrixInfo 
+       SET ticket = $2, release_date = $3
+       WHERE tag = $1`,
       [tag, commitData?.ticket || "N/A", releaseDate]
     );
-    
-    console.log("✅ Successfully stored release info in database.");
+
+    if (updateResult.rowCount === 0) {
+      // No existing record found, insert new one
+      await pool.query(
+        `INSERT INTO doraMatrixInfo (tag, ticket, release_date)
+         VALUES ($1, $2, $3)`,
+        [tag, commitData?.ticket || "N/A", releaseDate]
+      );
+      console.log("✅ Successfully inserted new release info in database.");
+    } else {
+      console.log(`✅ Successfully updated ${updateResult.rowCount} record(s) in database.`);
+    }
 
     // Read and filter ENG-101 issue only
     // const issues = readFilteredIssue("./resolved_issues.xlsx");
