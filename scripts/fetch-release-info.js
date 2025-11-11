@@ -228,31 +228,7 @@ async function storeGitTagAndJiraIssues() {
       console.log(`✅ Successfully updated ${updateResult.rowCount} record(s) in database.`);
     }
 
-    // Read and filter ENG-101 issue only
-    // const issues = readFilteredIssue("./resolved_issues.xlsx");
-
-    // if (issues.length === 0) {
-    //   console.log("⚠️ No ENG-101 issue found — skipping insert.");
-    //   return;
-    // }
-
-    // console.log("💾 Inserting Jira issue ENG-101 into DB...");
-    // for (const issue of issues) {
-    //   const { issue_key, summary, resolution_date, assignee } = issue;
-    //   await pool.query(
-    //     `INSERT INTO jira_issues (issue_key, summary, resolution_date, assignee, tag)
-    //      VALUES ($1, $2, $3, $4, $5)
-    //      ON CONFLICT (issue_key)
-    //      DO UPDATE SET
-    //         summary = EXCLUDED.summary,
-    //         resolution_date = EXCLUDED.resolution_date,
-    //         assignee = EXCLUDED.assignee,
-    //         tag = EXCLUDED.tag;`,
-    //     [issue_key, summary, resolution_date, assignee, tag]
-    //   );
-    // }
-
-   // console.log("✅ ENG-101 issue successfully inserted/updated in DB!");
+    
   } catch (err) {
     console.error("❌ Error:", err.message);
     if (err.message.includes("GitHub API Error")) {
