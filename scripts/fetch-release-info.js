@@ -61,10 +61,10 @@ async function fetchGitHubData() {
 
   const commitInfo = {
     sha: commitData.sha,
-    author: commitData.commit.author.name,
-    email: commitData.commit.author.email,
-    date: commitData.commit.author.date,
-    message: commitData.commit.message,
+    author: commitData.commit?.author.name,
+    email: commitData.commit?.author.email,
+    date: commitData.commit?.author.date,
+    message: commitData.commit?.message,
     url: commitData.html_url,
   };
 
