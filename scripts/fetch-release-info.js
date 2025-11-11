@@ -82,12 +82,16 @@ function extractTicketFromCommitMessage(commitMessage) {
 async function fetchGitHubData() {
   const repo = getRepoName();
   const sha = getLatestCommitSHA();
+  // Uncomment and set a specific SHA for testing:
+  // const sha = "792ba18ad7ee6295c59def7773fb02ac44165d9d";
 
   console.log(`🔍 Repo: ${repo}`);
   console.log(`💾 Commit SHA: ${sha}\n`);
 
-  const token = "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"; // Personal Access Token
-  if (!token) throw new Error("❌ Missing GITHUB_TOKEN in environment variables");
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    throw new Error("❌ Missing GITHUB_TOKEN in environment variables. Please set GITHUB_TOKEN environment variable.");
+  }
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -95,9 +99,24 @@ async function fetchGitHubData() {
   };
 
   // Fetch latest commit details
-  const commitRes = await fetch(`https://api.github.com/repos/${repo}/commits/${sha}`, { headers });
+  // Note: repo already contains "owner/repo" format from getRepoName()
+  const apiUrl = `https://api.github.com/repos/${repo}/commits/${sha}`;
+  console.log(`📡 Fetching: ${apiUrl}`);
+  
+  const commitRes = await fetch(apiUrl, { headers });
+  
+  // Check if the request was successful
+  if (!commitRes.ok) {
+    const errorData = await commitRes.json().catch(() => ({}));
+    throw new Error(
+      `❌ GitHub API Error (${commitRes.status}): ${errorData.message || commitRes.statusText}\n` +
+      `   URL: ${apiUrl}\n` +
+      `   Check if the repo exists and the SHA is valid.`
+    );
+  }
+  
   const commitData = await commitRes.json();
-
+  
   const commitMessage = commitData.commit?.message || "";
   const ticket = extractTicketFromCommitMessage(commitMessage);
 
@@ -150,8 +169,8 @@ async function storeGitTagAndJiraIssues() {
   }
 
   try {
-    const commitData = await fetchGitHubData()
-    console.log(`🎫 Extracted ticket: ${commitData?.ticket || "N/A"}`)
+    const commitData = await fetchGitHubData();
+    console.log(`🎫 Extracted ticket: ${commitData?.ticket || "N/A"}`);
     console.log("🧱 Ensuring tables exist...");
     
     await pool.query(`
@@ -170,9 +189,13 @@ async function storeGitTagAndJiraIssues() {
     await pool.query(
       `INSERT INTO doraMatrixInfo (tag, ticket, release_date)
        VALUES ($1, $2, $3)
-       ON CONFLICT (tag) DO UPDATE SET release_date = EXCLUDED.release_date;`,
+       ON CONFLICT (tag) DO UPDATE SET 
+         ticket = EXCLUDED.ticket,
+         release_date = EXCLUDED.release_date;`,
       [tag, commitData?.ticket || "N/A", releaseDate]
     );
+    
+    console.log("✅ Successfully stored release info in database.");
 
     // Read and filter ENG-101 issue only
     // const issues = readFilteredIssue("./resolved_issues.xlsx");
@@ -200,7 +223,16 @@ async function storeGitTagAndJiraIssues() {
 
    // console.log("✅ ENG-101 issue successfully inserted/updated in DB!");
   } catch (err) {
-    console.error("❌ Database error:", err.message);
+    console.error("❌ Error:", err.message);
+    if (err.message.includes("GitHub API Error")) {
+      console.error("   This is a GitHub API error. Please check:");
+      console.error("   1. The repository exists and is accessible");
+      console.error("   2. The commit SHA is valid");
+      console.error("   3. Your GitHub token has the necessary permissions");
+    } else {
+      console.error("   This is a database error. Please check your database connection and permissions.");
+    }
+    process.exit(1);
   } finally {
     console.log("🔌 Closing database connection...");
     await pool.end();
