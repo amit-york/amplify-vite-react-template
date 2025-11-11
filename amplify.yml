@@ -4,25 +4,21 @@ frontend:
     preBuild:
       commands:
         - echo "Installing dependencies..."
-        - npm i
+        - npm ci --cache .npm --prefer-offline
         - echo "Fetching all Git tags for release info..."
         - git fetch --tags --force
-
     build:
       commands:
         - echo "Building frontend..."
         - npm run build
-
     postBuild:
       commands:
         - echo "✅ Build succeeded — running custom hook to store Git tag info..."
-        - npm run my-hook          # 👈 runs only if build is successful
-
+        - npm run my-hook
   artifacts:
     baseDirectory: dist
     files:
       - '**/*'
-
   cache:
     paths:
       - node_modules/**/*
