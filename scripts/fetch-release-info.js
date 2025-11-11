@@ -270,7 +270,6 @@ async function storeGitTagAndJiraIssues() {
     console.log("👋 Database connection closed.");
   }
 }
-
 // Run script
 storeGitTagAndJiraIssues();
 
