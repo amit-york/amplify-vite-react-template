@@ -45,7 +45,7 @@ frontend:
         - |
           if [ "$AWS_BRANCH" = "main" ]; then
             echo "Running post hook on main branch..."
-            npm run doromatrix:watch || echo "⚠️ Post hook failed, but continuing build..."
+            npm run doromatrix:watch
           else
             echo "Skipping post hook (current branch: $AWS_BRANCH)"
           fi
