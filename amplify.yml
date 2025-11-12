@@ -43,7 +43,7 @@ frontend:
       commands:
         - echo "✅ Backend and frontend builds completed — checking branch before running post hook..."
         - |
-          if [ "$AWS_BRANCH" = "stage" ]; then
+          if [ "$AWS_BRANCH" = "main" ]; then
             echo "Running post hook on main branch..."
             npm run my-hook
           else
