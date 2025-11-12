@@ -247,6 +247,7 @@ async function storeGitTagAndJiraIssues() {
   }
 }
 // Run script
+
 storeGitTagAndJiraIssues();
 
 
