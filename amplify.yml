@@ -1,25 +1,61 @@
+# version: 1
+# frontend:
+#   phases:
+#     preBuild:
+#       commands:
+#         - echo "Installing dependencies..."
+#         - npm i
+#         - echo "Fetching all Git tags for release info..."
+#         - git fetch --tags --force
+#     build:
+#       commands:
+#         - echo "Building frontend..."
+#         - npm run build
+#     postBuild:
+#       commands:
+#         - echo "✅ Build succeeded — running custom hook to store Git tag info..."
+#         - npm run my-hook
+#   artifacts:
+#     baseDirectory: dist
+#     files:
+#       - '**/*'
+#   cache:
+#     paths:
+#       - node_modules/**/*
+#       - .npm/**/*
+
+
+
 version: 1
-frontend:
+backend:
   phases:
-    preBuild:
-      commands:
-        - echo "Installing dependencies..."
-        - npm i
-        - echo "Fetching all Git tags for release info..."
-        - git fetch --tags --force
     build:
       commands:
-        - echo "Building frontend..."
-        - npm run build
-    postBuild:
+        - npm ci --cache .npm --prefer-offline
+        - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+
+frontend:
+  phases:
+    build:
       commands:
-        - echo "✅ Build succeeded — running custom hook to store Git tag info..."
-        - npm run my-hook
+        - npm run build
   artifacts:
     baseDirectory: dist
     files:
       - '**/*'
   cache:
     paths:
-      - node_modules/**/*
       - .npm/**/*
+      - node_modules/**/*
+
+# Global post hook (runs after backend + frontend)
+hooks:
+  postBuild:
+    - echo "✅ Backend and frontend builds completed — checking branch before running post hook..."
+    - |
+      if [ "$AWS_BRANCH" = "main" ]; then
+        echo "Running post hook on main branch..."
+        npm run my-hook
+      else
+        echo "Skipping post hook (current branch: $AWS_BRANCH)"
+      fi
