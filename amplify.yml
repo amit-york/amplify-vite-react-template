@@ -48,6 +48,7 @@ frontend:
       - .npm/**/*
       - node_modules/**/*
 
+
 # Global post hook (runs after backend + frontend)
 hooks:
   postBuild:
