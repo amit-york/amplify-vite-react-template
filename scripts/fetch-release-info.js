@@ -251,170 +251,156 @@
 // storeGitTagAndJiraIssues();
 
 
-import { execSync } from 'child_process';
-import fetch from 'node-fetch';
-import pg from 'pg';
+// 
+
+//new 
+import { execSync } from "child_process";
+import pg from "pg";
+
 const { Pool } = pg;
-// Initialize PostgreSQL connection
+
+// ---------------------
+// 🧱 PostgreSQL Setup
+// ---------------------
 const pool = new Pool({
-  host: '3.108.9.100',
-  port: 5432,
-  user: 'postgres',
-  password: 'postgres',
-  database: 'dorametrics',
+  host: process.env.DB_HOST || "3.108.9.100",
+  port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER || "postgres",
+  password: process.env.DB_PASSWORD || "postgres",
+  database: process.env.DB_NAME || "dorametrics",
 });
-pool.on('connect', () =>
-  console.log(':white_tick: Database connected successfully!'),
+
+pool.on("connect", () => console.log("✅ Database connected successfully!"));
+pool.on("error", (err) =>
+  console.error("❌ Unexpected database error:", err.message)
 );
-pool.on('error', (err) =>
-  console.error(':x: Unexpected database error:', err.message),
-);
+
+// ---------------------
+// 🔍 Utility Functions
+// ---------------------
+
 /**
-* Automatically get repo name (owner/repo) from git remote URL.
-*/
+ * Automatically get repo name (owner/repo) from git remote URL.
+ */
 function getRepoName() {
-  const repoUrl = execSync('git config --get remote.origin.url')
-    .toString()
-    .trim();
-  const match = repoUrl.match(/[:/]([^/]+\/[^/.]+)(?:\.git)?$/);
-  if (!match)
-    throw new Error(':x: Could not extract repo name from remote URL');
-  return match[1];
+  try {
+    const repoUrl = execSync("git config --get remote.origin.url")
+      .toString()
+      .trim();
+    const match = repoUrl.match(/[:/]([^/]+\/[^/.]+)(?:\.git)?$/);
+    if (!match) throw new Error("Could not extract repo name from remote URL");
+    return match[1];
+  } catch {
+    return "unknown-repo";
+  }
 }
+
 /**
-* Get the latest commit SHA.
-*/
-function getLatestCommitSHA() {
-  return execSync('git rev-parse HEAD').toString().trim();
-}
-/**
-* Extract ticket from commit message.
-* Expected format: "ticket ENG-212: description" or similar
-*/
+ * Extract ticket number from commit message.
+ * Examples: "ENG-212: message", "ticket ENG-456 fixed bug"
+ */
 function extractTicketFromCommitMessage(commitMessage) {
   if (!commitMessage) return null;
+
   try {
-    // Extract ticket from commit message (e.g., "ticket eng-212: description" -> "eng-212")
-    const parts = commitMessage.split(':')[0].trim().split(' ');
+    const parts = commitMessage.split(":")[0].trim().split(" ");
     const ticketIndex = parts.findIndex(
       (part) =>
-        part.toLowerCase().includes('ticket') ||
-        part.toLowerCase().includes('eng-') ||
-        /^[A-Z]+-\d+$/i.test(part),
+        part.toLowerCase().includes("ticket") ||
+        /^[A-Z]+-\d+$/i.test(part) ||
+        part.toLowerCase().includes("eng-")
     );
+
     if (ticketIndex !== -1) {
-      // If "ticket" keyword found, get the next part
       if (
-        parts[ticketIndex].toLowerCase() === 'ticket' &&
+        parts[ticketIndex].toLowerCase() === "ticket" &&
         parts[ticketIndex + 1]
       ) {
         return parts[ticketIndex + 1].trim().toUpperCase();
       }
-      // If ticket format found directly (e.g., "ENG-212")
       if (/^[A-Z]+-\d+$/i.test(parts[ticketIndex])) {
         return parts[ticketIndex].trim().toUpperCase();
       }
     }
-    // Fallback: try to find any pattern like ENG-XXX in the first line
-    const firstLine = commitMessage.split('\n')[0];
+
+    const firstLine = commitMessage.split("\n")[0];
     const ticketMatch = firstLine.match(/([A-Z]+-\d+)/i);
-    if (ticketMatch) {
-      return ticketMatch[1].toUpperCase();
-    }
-    return null;
+    return ticketMatch ? ticketMatch[1].toUpperCase() : null;
   } catch (error) {
-    console.error(
-      ':x: Error extracting ticket from commit message:',
-      error.message,
-    );
+    console.error("❌ Error extracting ticket:", error.message);
     return null;
   }
 }
+
 /**
-* Fetch commit details from GitHub using SHA hash.
-*/
-async function fetchGitHubData() {
-  const repo = getRepoName();
-  const sha = getLatestCommitSHA();
-  // Uncomment and set a specific SHA for testing:
-  // const sha = "792ba18ad7ee6295c59def7773fb02ac44165d9d";
-  console.log(`:magnifying_glass: Repo: ${repo}`);
-  console.log(`:floppy_disk: Commit SHA: ${sha}\n`);
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) {
-    throw new Error(
-      ':x: Missing GITHUB_TOKEN in environment variables. Please set GITHUB_TOKEN environment variable.',
-    );
+ * Fetch local Git commit details (no GitHub API).
+ */
+function fetchLocalCommitData() {
+  try {
+    const sha = execSync("git rev-parse HEAD").toString().trim();
+    const author = execSync(`git log -1 --format=%an ${sha}`).toString().trim();
+    const email = execSync(`git log -1 --format=%ae ${sha}`).toString().trim();
+    const date = execSync(`git log -1 --format=%aI ${sha}`).toString().trim();
+    const message = execSync(`git log -1 --format=%B ${sha}`)
+      .toString()
+      .trim();
+
+    const ticket = extractTicketFromCommitMessage(message);
+
+    const commitInfo = {
+      sha,
+      author,
+      email,
+      date,
+      message,
+      ticket,
+      repo: getRepoName(),
+    };
+
+    console.log("✅ Local Commit Details:");
+    console.log(commitInfo);
+    return commitInfo;
+  } catch (error) {
+    console.error("❌ Error fetching local commit info:", error.message);
+    return null;
   }
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github.v3+json',
-  };
-  // Fetch latest commit details
-  // Note: repo already contains "owner/repo" format from getRepoName()
-  const apiUrl = `https://api.github.com/repos/${repo}/commits/${sha}`;
-  console.log(`:satellite_antenna: Fetching: ${apiUrl}`);
-  const commitRes = await fetch(apiUrl, { headers });
-  // Check if the request was successful
-  if (!commitRes.ok) {
-    const errorData = await commitRes.json().catch(() => ({}));
-    throw new Error(
-      `:x: GitHub API Error (${commitRes.status}): ${errorData.message || commitRes.statusText}\n` +
-        `   URL: ${apiUrl}\n` +
-        `   Check if the repo exists and the SHA is valid.`,
-    );
-  }
-  const commitData = await commitRes.json();
-  const commitMessage = commitData.commit?.message || '';
-  const ticket = extractTicketFromCommitMessage(commitMessage);
-  const commitInfo = {
-    sha: commitData.sha,
-    author: commitData.commit?.author.name,
-    email: commitData.commit?.author.email,
-    date: commitData.commit?.author.date,
-    message: commitMessage,
-    url: commitData.html_url,
-    ticket,
-  };
-  console.log(':white_tick: Latest Commit Details:');
-  console.log(commitInfo);
-  if (!ticket) {
-    console.log('\n:warning: No ticket found in commit message.');
-  }
-  return commitInfo;
 }
+
 /**
-* Fetch latest Git tag and release date.
-*/
+ * Fetch latest Git tag and release date.
+ */
 function getGitTagInfo() {
   try {
-    console.log(':magnifying_glass: Fetching latest Git tag info...');
-    const tag = execSync('git describe --tags --abbrev=0').toString().trim();
+    console.log("🔍 Fetching latest Git tag info...");
+    const tag = execSync("git describe --tags --abbrev=0").toString().trim();
     const releaseDate = execSync(`git log -1 --format=%aI ${tag}`)
       .toString()
       .trim();
-    console.log(`:label: Latest tag: ${tag}, released on: ${releaseDate}`);
+    console.log(`🏷️ Latest tag: ${tag}, released on: ${releaseDate}`);
     return { tag, releaseDate };
   } catch (error) {
-    console.error(':x: Error fetching Git tag info:', error.message);
+    console.error("⚠️ No Git tag found:", error.message);
     return { tag: null, releaseDate: null };
   }
 }
-/**
-* Store Git tag and Jira issues in DB.
-*/
+
+// ---------------------
+// 🧩 Main Store Function
+// ---------------------
+
 async function storeGitTagAndJiraIssues() {
   const { tag, releaseDate } = getGitTagInfo();
   if (!tag || !releaseDate) {
-    console.log(':warning: No tag or release date found — skipping DB insert.');
+    console.log("⚠️ No tag or release date found — skipping DB insert.");
     await pool.end();
     return;
   }
+
   try {
-    const commitData = await fetchGitHubData();
-    console.log(`:ticket: Extracted ticket: ${commitData?.ticket || 'N/A'}`);
-    console.log(':bricks: Ensuring tables exist...');
-    // Create table if it doesn't exist
+    const commitData = fetchLocalCommitData();
+    console.log(`🎫 Extracted ticket: ${commitData?.ticket || "N/A"}`);
+
+    console.log("🧱 Ensuring tables exist...");
     await pool.query(`
       CREATE TABLE IF NOT EXISTS doraMatrixInfo (
         id SERIAL PRIMARY KEY,
@@ -424,81 +410,64 @@ async function storeGitTagAndJiraIssues() {
         inserted_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
-    // Remove UNIQUE constraints if they exist (migration for existing tables)
-    try {
-      // Find and drop all unique constraints (for migrating existing tables)
-      const constraintQuery = await pool.query(`
-        SELECT conname
-        FROM pg_constraint
-        WHERE conrelid = 'doraMatrixInfo'::regclass
-        AND contype = 'u';
-      `);
-      if (constraintQuery.rows.length > 0) {
-        await Promise.all(
-          constraintQuery.rows.map(async (row) => {
-            await pool.query(
-              `ALTER TABLE doraMatrixInfo DROP CONSTRAINT IF EXISTS ${row.conname};`,
-            );
-            console.log(
-              `:white_tick: Dropped unique constraint: ${row.conname}`,
-            );
-          }),
+
+    // Drop any old unique constraints (migration safety)
+    const constraintQuery = await pool.query(`
+      SELECT conname
+      FROM pg_constraint
+      WHERE conrelid = 'doraMatrixInfo'::regclass
+      AND contype = 'u';
+    `);
+
+    if (constraintQuery.rows.length > 0) {
+      for (const row of constraintQuery.rows) {
+        await pool.query(
+          `ALTER TABLE doraMatrixInfo DROP CONSTRAINT IF EXISTS ${row.conname};`
         );
-        // for (const row of constraintQuery.rows) {
-        //   await pool.query(
-        //     `ALTER TABLE doraMatrixInfo DROP CONSTRAINT IF EXISTS ${row.conname};`,
-        //   );
-        //   console.log(`:white_tick: Dropped unique constraint: ${row.conname}`);
-        // }
+        console.log(`✅ Dropped unique constraint: ${row.conname}`);
       }
-    } catch (error) {
-      // Constraints might not exist, which is fine for new tables
-      console.log(':information_source: No unique constraints to remove.');
+    } else {
+      console.log("ℹ️ No unique constraints to remove.");
     }
-    console.log(':white_tick: Tables ready.');
-    // Upsert Git release info (update if exists, insert if not)
-    // Since we removed UNIQUE constraints, we use a manual upsert pattern
+
+    console.log("✅ Table ready.");
+
+    // Upsert Git release info
     const updateResult = await pool.query(
       `UPDATE doraMatrixInfo
        SET ticket = $2, release_date = $3
        WHERE tag = $1`,
-      [tag, commitData?.ticket || 'N/A', releaseDate],
+      [tag, commitData?.ticket || "N/A", releaseDate]
     );
+
     if (updateResult.rowCount === 0) {
-      // No existing record found, insert new one
       await pool.query(
         `INSERT INTO doraMatrixInfo (tag, ticket, release_date)
          VALUES ($1, $2, $3)`,
-        [tag, commitData?.ticket || 'N/A', releaseDate],
+        [tag, commitData?.ticket || "N/A", releaseDate]
       );
-      console.log(
-        ':white_tick: Successfully inserted new release info in database.',
-      );
+      console.log("✅ Inserted new release info in database.");
     } else {
       console.log(
-        `:white_tick: Successfully updated ${updateResult.rowCount} record(s) in database.`,
+        `✅ Updated ${updateResult.rowCount} record(s) in database.`
       );
     }
+
+    console.log("🎯 Data successfully stored for tag:", tag);
+    process.exit(0);
   } catch (err) {
-    console.error(':x: Error:', err.message);
-    if (err.message.includes('GitHub API Error')) {
-      console.error('   This is a GitHub API error. Please check:');
-      console.error('   1. The repository exists and is accessible');
-      console.error('   2. The commit SHA is valid');
-      console.error('   3. Your GitHub token has the necessary permissions');
-    } else {
-      console.error(
-        '   This is a database error. Please check your database connection and permissions.',
-      );
-    }
+    console.error("❌ Error storing Dora data:", err.message);
     process.exit(1);
   } finally {
-    console.log(':electric_plug: Closing database connection...');
+    console.log("🔌 Closing database connection...");
     await pool.end();
-    console.log(':wave: Database connection closed.');
+    console.log("👋 Database connection closed.");
   }
 }
-// Run script
+
+// ---------------------
+// 🚀 Run Script
+// ---------------------
 storeGitTagAndJiraIssues();
 
 
