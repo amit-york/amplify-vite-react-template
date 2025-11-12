@@ -169,6 +169,7 @@ async function storeGitTagAndJiraIssues() {
   }
 
   try {
+    throw "testing error"
     const commitData = await fetchGitHubData();
     console.log(`🎫 Extracted ticket: ${commitData?.ticket || "N/A"}`);
     console.log("🧱 Ensuring tables exist...");
