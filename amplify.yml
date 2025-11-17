@@ -26,6 +26,40 @@
 
 
 
+# version: 1
+# backend:
+#   phases:
+#     build:
+#       commands:
+#         - npm i
+#         - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+
+# frontend:
+#   phases:
+#     build:
+#       commands:
+#         - npm run build
+#     postBuild:
+#       commands:
+#         - echo "✅ Backend and frontend builds completed — checking branch before running post hook..."
+#         - |
+#           if [ "$AWS_BRANCH" = "main" ]; then
+#             echo "Running post hook on main branch..."
+#             npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
+#           else
+#             echo "Skipping post hook (current branch: $AWS_BRANCH)"
+#           fi
+#   artifacts:
+#     baseDirectory: dist
+#     files:
+#       - '**/*'
+#   cache:
+#     paths:
+#       - .npm/**/*
+#       - node_modules/**/*
+
+
+####### new script
 version: 1
 backend:
   phases:
@@ -44,10 +78,21 @@ frontend:
         - echo "✅ Backend and frontend builds completed — checking branch before running post hook..."
         - |
           if [ "$AWS_BRANCH" = "main" ]; then
-            echo "Running post hook on main branch..."
+            echo "🌍 Setting environment as PROD"
+            export ENVIRONMENT="prod"
+          elif [ "$AWS_BRANCH" = "stage" ]; then
+            echo "🌍 Setting environment as STAGE"
+            export ENVIRONMENT="stage"
+          else
+            echo "🌍 Setting environment as DEV"
+            export ENVIRONMENT="dev"
+          fi
+        - |
+          if [ "$AWS_BRANCH" = "main" ]; then
+            echo "🚀 Running Dora script..."
             npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
           else
-            echo "Skipping post hook (current branch: $AWS_BRANCH)"
+            echo "⏩ Skipping Dora script (current branch: $AWS_BRANCH)"
           fi
   artifacts:
     baseDirectory: dist
