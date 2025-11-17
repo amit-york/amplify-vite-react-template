@@ -554,6 +554,18 @@ async function storeGitTagAndJiraIssues() {
     `);
 
     console.log("💾 Upserting release info...");
+    // const updateResult = await pool.query(
+    //   `UPDATE current_dora_release_info
+    //    SET ticket = $2, release_date = $3, project_name = $4, environment = $5
+    //    WHERE tag = $1`,
+    //   [
+    //     tag,
+    //     commitData?.ticketString || "N/A",
+    //     releaseDate,
+    //     commitData?.repo || "unknown",
+    //     environment,
+    //   ]
+    // );
     const updateResult = await pool.query(
       `UPDATE current_dora_release_info
        SET ticket = $2, release_date = $3, project_name = $4, environment = $5
@@ -562,11 +574,11 @@ async function storeGitTagAndJiraIssues() {
         tag,
         commitData?.ticketString || "N/A",
         releaseDate,
-        commitData?.repo || "unknown",
+        process.env.PROJECT_NAME || commitData?.repo || "unknown",
         environment,
       ]
     );
-
+    
     if (updateResult.rowCount === 0) {
       await pool.query(
         `INSERT INTO current_dora_release_info (tag, ticket, release_date, project_name, environment)
@@ -575,7 +587,8 @@ async function storeGitTagAndJiraIssues() {
           tag,
           commitData?.ticketString || "N/A",
           releaseDate,
-          commitData?.repo || "unknown",
+          // commitData?.repo || "unknown",
+          process.env.PROJECT_NAME || commitData?.repo || "unknown",
           environment,
         ]
       );
