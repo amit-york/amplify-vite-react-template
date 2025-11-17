@@ -130,6 +130,7 @@ frontend:
           else
             export ENVIRONMENT="dev"
           fi
+        - export PROJECT_NAME="$PROJECT_NAME"
         - echo "📌 ENVIRONMENT = $ENVIRONMENT"
         - echo "📌 PROJECT_NAME = $PROJECT_NAME"
         - |
