@@ -224,12 +224,19 @@ const { Pool } = pg;
 // ---------------------
 // 🧱 PostgreSQL Setup
 // ---------------------
+// const pool = new Pool({
+//   host: process.env.DB_HOST || "3.108.9.100",
+//   port: process.env.DB_PORT || 5432,
+//   user: process.env.DB_USER || "postgres",
+//   password: process.env.DB_PASSWORD || "postgres",
+//   database: process.env.DB_NAME || "dorametrics",
+// });
 const pool = new Pool({
-  host: process.env.DB_HOST || "3.108.9.100",
-  port: process.env.DB_PORT || 5432,
-  user: process.env.DB_USER || "postgres",
-  password: process.env.DB_PASSWORD || "postgres",
-  database: process.env.DB_NAME || "dorametrics",
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 });
 
 pool.on("connect", () => console.log("✅ Database connected successfully!"));
