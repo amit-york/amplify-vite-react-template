@@ -426,6 +426,7 @@
 
 
 //New Script with current_dora_release_info
+// New Script with current_dora_release_info
 import { execSync } from "child_process";
 import pg from "pg";
 
@@ -500,7 +501,7 @@ function fetchLocalCommitData() {
       message,
       tickets,
       ticketString,
-      repo: getRepoName(),
+      repo: process.env.PROJECT_NAME || getRepoName(),
     };
   } catch (error) {
     console.error("❌ Error fetching local commit info:", error.message);
@@ -526,7 +527,9 @@ function getGitTagInfo() {
 // ---------------------
 
 async function storeGitTagAndJiraIssues() {
+  const environment = process.env.ENVIRONMENT || "dev";
   const { tag, releaseDate } = getGitTagInfo();
+
   if (!tag || !releaseDate) {
     console.log("⚠️ No tag or release date found — skipping DB insert.");
     await pool.end();
@@ -535,7 +538,7 @@ async function storeGitTagAndJiraIssues() {
 
   try {
     const commitData = fetchLocalCommitData();
-    console.log(`🎫 Tickets: ${commitData?.ticketString || "N/A"}`);
+    console.log(`🎫 Tickets Found: ${commitData?.ticketString || "N/A"}`);
 
     console.log("🧱 Ensuring table exists...");
     await pool.query(`
@@ -544,56 +547,53 @@ async function storeGitTagAndJiraIssues() {
         tag VARCHAR(50) NOT NULL,
         ticket TEXT NOT NULL,
         release_date TIMESTAMPTZ NOT NULL,
+        project_name VARCHAR(100),
+        environment VARCHAR(20),
         inserted_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    const constraintQuery = await pool.query(`
-      SELECT conname
-      FROM pg_constraint
-      WHERE conrelid = 'current_dora_release_info'::regclass
-      AND contype = 'u';
-    `);
-
-    if (constraintQuery.rows.length > 0) {
-      for (const row of constraintQuery.rows) {
-        await pool.query(
-          `ALTER TABLE current_dora_release_info DROP CONSTRAINT IF EXISTS ${row.conname};`
-        );
-        console.log(`✅ Dropped unique constraint: ${row.conname}`);
-      }
-    }
-
-    console.log("💾 Upserting data...");
-
+    console.log("💾 Upserting release info...");
     const updateResult = await pool.query(
       `UPDATE current_dora_release_info
-       SET ticket = $2, release_date = $3
+       SET ticket = $2, release_date = $3, project_name = $4, environment = $5
        WHERE tag = $1`,
-      [tag, commitData?.ticketString || "N/A", releaseDate]
+      [
+        tag,
+        commitData?.ticketString || "N/A",
+        releaseDate,
+        commitData?.repo || "unknown",
+        environment,
+      ]
     );
 
     if (updateResult.rowCount === 0) {
       await pool.query(
-        `INSERT INTO current_dora_release_info (tag, ticket, release_date)
-         VALUES ($1, $2, $3)`,
-        [tag, commitData?.ticketString || "N/A", releaseDate]
+        `INSERT INTO current_dora_release_info (tag, ticket, release_date, project_name, environment)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          tag,
+          commitData?.ticketString || "N/A",
+          releaseDate,
+          commitData?.repo || "unknown",
+          environment,
+        ]
       );
-      console.log("✨ Inserted new release info.");
+      console.log("✨ Inserted new release info into database.");
     } else {
-      console.log(`🔁 Updated ${updateResult.rowCount} record(s).`);
+      console.log(`🔁 Updated ${updateResult.rowCount} existing record(s).`);
     }
 
-    console.log("🎯 Data stored for tag:", tag);
-    process.exit(0);
+    console.log("🎯 Stored data for tag:", tag);
   } catch (err) {
-    console.error("❌ Error storing data:", err.message);
-    process.exit(1);
+    console.error("❌ Error storing release data:", err.message);
   } finally {
     console.log("🔌 Closing DB connection...");
     await pool.end();
     console.log("👋 Done.");
+    process.exit(0);
   }
 }
 
+// 🚀 Execute function
 storeGitTagAndJiraIssues();
