@@ -102,3 +102,48 @@ frontend:
     paths:
       - .npm/**/*
       - node_modules/**/*
+
+
+###new latest script
+version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - npm i
+        - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+
+frontend:
+  phases:
+    build:
+      commands:
+        - npm run build
+
+    postBuild:
+      commands:
+        - echo "🏗 Backend & frontend build completed — setting deployment variables..."
+        - |
+          if [ "$AWS_BRANCH" = "main" ]; then
+            export ENVIRONMENT="prod"
+          elif [ "$AWS_BRANCH" = "stage" ]; then
+            export ENVIRONMENT="stage"
+          else
+            export ENVIRONMENT="dev"
+          fi
+
+        - echo "📌 ENVIRONMENT = $ENVIRONMENT"
+        - echo "📌 PROJECT_NAME = $PROJECT_NAME"
+
+        # Always run Dora script for all branches
+        - echo "🚀 Running Dora script for branch: $AWS_BRANCH"
+        - npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
+
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+
+  cache:
+    paths:
+      - .npm/**/*
+      - node_modules/**/*
