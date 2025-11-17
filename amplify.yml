@@ -130,13 +130,11 @@ frontend:
           else
             export ENVIRONMENT="dev"
           fi
-
         - echo "📌 ENVIRONMENT = $ENVIRONMENT"
         - echo "📌 PROJECT_NAME = $PROJECT_NAME"
-
-        # Always run Dora script for all branches
-        - echo "🚀 Running Dora script for branch: $AWS_BRANCH"
-        - npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
+        - |
+          echo "🚀 Running Dora script for branch: $AWS_BRANCH"
+          npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
 
   artifacts:
     baseDirectory: dist
