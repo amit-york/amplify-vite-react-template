@@ -381,7 +381,7 @@
 // }
 
 
-//latest
+//latest dev
 import { execSync } from "child_process";
 import pg from "pg";
 
@@ -542,7 +542,7 @@ async function storeGitTagAndJiraIssues() {
     console.log("🎯 Stored data for tag:", tag);
   } catch (err) {
     console.error("❌ Error storing release data:", err.message);
-  } finally {
+  } finally {3
     console.log("🔌 Closing DB connection...");
     await pool.end();
     console.log("👋 Done.");
