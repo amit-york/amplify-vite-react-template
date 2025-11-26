@@ -98,14 +98,24 @@ async function storeGitTagAndJiraIssues() {
   const environment = process.env.ENVIRONMENT || "dev";
   const { tag, releaseDate } = getGitTagInfo();
 
-  if (!tag || !releaseDate) {
-    console.log("⚠️ No tag or release date found — skipping DB insert.");
-    await pool.end();
-    return;
-  }
-
   try {
     const commitData = fetchLocalCommitData();
+
+    // Derive safe values so we always write a record, even if tag/release info are missing.
+    const effectiveTag =
+      tag ||
+      process.env.FALLBACK_TAG ||
+      (commitData?.sha ? `no-tag-${commitData.sha.slice(0, 7)}` : "no-tag");
+
+    const effectiveReleaseDate =
+      releaseDate || commitData?.date || new Date().toISOString();
+
+    console.log(`🏷️ Tag used: ${effectiveTag}`);
+    console.log(
+      `📅 Release date used: ${effectiveReleaseDate} (original: ${
+        releaseDate || "none"
+      })`
+    );
     console.log(`🎫 Tickets Found: ${commitData?.ticketString || "N/A"}`);
 
     // Ensure table exists + add unique constraint
@@ -113,11 +123,16 @@ async function storeGitTagAndJiraIssues() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS dora_release_info (
         id SERIAL PRIMARY KEY,
-        tag VARCHAR(50) NOT NULL,
+        tag VARCHAR(100) NOT NULL,
         ticket TEXT NOT NULL,
         release_date TIMESTAMPTZ NOT NULL,
-        project_name VARCHAR(100),
-        environment VARCHAR(20),
+        project_name VARCHAR(255),
+        environment VARCHAR(50),
+        commit_sha VARCHAR(100),
+        commit_author VARCHAR(255),
+        commit_email VARCHAR(255),
+        commit_date TIMESTAMPTZ,
+        commit_message TEXT,
         inserted_at TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE(tag, environment, ticket)
       );
@@ -126,23 +141,44 @@ async function storeGitTagAndJiraIssues() {
     console.log("💾 Inserting/Updating release info...");
 
     const insertQuery = `
-      INSERT INTO dora_release_info (tag, ticket, release_date, project_name, environment)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO dora_release_info (
+        tag,
+        ticket,
+        release_date,
+        project_name,
+        environment,
+        commit_sha,
+        commit_author,
+        commit_email,
+        commit_date,
+        commit_message
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (tag, environment, ticket)
       DO UPDATE SET 
-        release_date = EXCLUDED.release_date,
-        project_name = EXCLUDED.project_name;
+        release_date   = EXCLUDED.release_date,
+        project_name   = EXCLUDED.project_name,
+        commit_sha     = EXCLUDED.commit_sha,
+        commit_author  = EXCLUDED.commit_author,
+        commit_email   = EXCLUDED.commit_email,
+        commit_date    = EXCLUDED.commit_date,
+        commit_message = EXCLUDED.commit_message;
     `;
 
     await pool.query(insertQuery, [
-      tag,
+      effectiveTag,
       commitData?.ticketString || "N/A",
-      releaseDate,
+      effectiveReleaseDate,
       commitData?.repo || "unknown",
       environment,
+      commitData?.sha || null,
+      commitData?.author || null,
+      commitData?.email || null,
+      commitData?.date || null,
+      commitData?.message || null,
     ]);
 
-    console.log("✨ Inserted or updated release info for:", tag);
+    console.log("✨ Inserted or updated release info for:", effectiveTag);
 
   } catch (err) {
     console.error("❌ Error storing release data:", err.message);

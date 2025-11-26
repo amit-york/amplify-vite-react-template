@@ -22,7 +22,7 @@ frontend:
           elif [ "$AWS_BRANCH" = "stage" ]; then
             export ENVIRONMENT="stage"
           else
-            export ENVIRONMENT="dev"
+            export ENVIRONMENT="develop"
           fi
         - export PROJECT_NAME="$PROJECT_NAME"
         - echo "📌 ENVIRONMENT = $ENVIRONMENT"
