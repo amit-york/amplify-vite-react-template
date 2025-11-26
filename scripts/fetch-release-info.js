@@ -207,8 +207,6 @@
 // // ---------------------
 // storeGitTagAndJiraIssues();
 
-
-
 //New Script with current_dora_release_info
 // New Script with current_dora_release_info
 // import { execSync } from "child_process";
