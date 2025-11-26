@@ -1,17 +1,28 @@
-###new latest script
 version: 1
 backend:
   phases:
+    preBuild:
+      commands:
+        - yarn install
     build:
       commands:
-        - npm i
-        - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
-
+        - '# Execute Amplify CLI with the helper script'
+        - sudo yum update
+        - sudo yum install -y python3.11
+        - pip3 install --user pipenv
+        - export PATH="/root/.local/bin":$PATH
+        - amplifyPush --simple
 frontend:
   phases:
+    preBuild:
+      commands:
+        - yarn install
     build:
       commands:
-        - npm run build
+        - echo "GOOGLE_TRANSLATE_API_KEY=$GOOGLE_TRANSLATE_API_KEY" >> .env
+        - echo "GOOGLE_TRANSLATE_API_ENDPOINT=$GOOGLE_TRANSLATE_API_ENDPOINT" >> .env
+        - echo "GOOGLE_TRANSLATE_LIST_LANGUAGE_API_ENDPOINT=$GOOGLE_TRANSLATE_LIST_LANGUAGE_API_ENDPOINT" >> .env
+        - yarn run build
 
     postBuild:
       commands:
@@ -32,11 +43,9 @@ frontend:
           npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
 
   artifacts:
-    baseDirectory: dist
+    baseDirectory: .next
     files:
       - '**/*'
-
   cache:
     paths:
-      - .npm/**/*
       - node_modules/**/*
