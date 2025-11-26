@@ -710,3 +710,5 @@ async function storeGitTagAndJiraIssues() {
 
 // 🚀 Execute function
 storeGitTagAndJiraIssues();
+
+
