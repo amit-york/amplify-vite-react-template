@@ -350,9 +350,6 @@
 //         environment,
 //       ]
 //     );
-    
-
-
 //     if (updateResult.rowCount === 0) {
 //       await pool.query(
 //         `INSERT INTO current_dora_release_info (tag, ticket, release_date, project_name, environment)
