@@ -1,3 +1,6 @@
+// 
+
+//latest script
 //latest db updated rows
 import { execSync } from "child_process";
 import pg from "pg";
@@ -48,35 +51,6 @@ function extractAllTicketsFromCommitMessage(commitMessage) {
   }
 }
 
-function fetchLocalCommitData() {
-  try {
-    const sha = execSync("git rev-parse HEAD").toString().trim();
-    const author = execSync(`git log -1 --format=%an ${sha}`).toString().trim();
-    const email = execSync(`git log -1 --format=%ae ${sha}`).toString().trim();
-    const date = execSync(`git log -1 --format=%aI ${sha}`).toString().trim();
-    const message = execSync(`git log -1 --format=%B ${sha}`)
-      .toString()
-      .trim();
-
-    const tickets = extractAllTicketsFromCommitMessage(message);
-    const ticketString = tickets.length > 0 ? tickets.join(", ") : "N/A";
-
-    return {
-      sha,
-      author,
-      email,
-      date,
-      message,
-      tickets,
-      ticketString,
-      repo: process.env.PROJECT_NAME || getRepoName(),
-    };
-  } catch (error) {
-    console.error("❌ Error fetching commit data:", error.message);
-    return null;
-  }
-}
-
 function getGitTagInfo() {
   try {
     const tag = execSync("git describe --tags --abbrev=0").toString().trim();
@@ -90,6 +64,14 @@ function getGitTagInfo() {
   }
 }
 
+function getLatestCommitMessage() {
+  try {
+    return execSync("git log -1 --format=%B").toString().trim();
+  } catch {
+    return "";
+  }
+}
+
 // ---------------------
 // 🧩 Main Store Function
 // ---------------------
@@ -99,26 +81,21 @@ async function storeGitTagAndJiraIssues() {
   const { tag, releaseDate } = getGitTagInfo();
 
   try {
-    const commitData = fetchLocalCommitData();
+    const commitMessage = getLatestCommitMessage();
+    const tickets = extractAllTicketsFromCommitMessage(commitMessage);
+    const ticketString = tickets.length > 0 ? tickets.join(", ") : "N/A";
 
-    // Derive safe values so we always write a record, even if tag/release info are missing.
     const effectiveTag =
-      tag ||
-      process.env.FALLBACK_TAG ||
-      (commitData?.sha ? `no-tag-${commitData.sha.slice(0, 7)}` : "no-tag");
+      tag || process.env.FALLBACK_TAG || "no-tag";
 
     const effectiveReleaseDate =
-      releaseDate || commitData?.date || new Date().toISOString();
+      releaseDate || new Date().toISOString();
 
-    console.log(`🏷️ Tag used: ${effectiveTag}`);
-    console.log(
-      `📅 Release date used: ${effectiveReleaseDate} (original: ${
-        releaseDate || "none"
-      })`
-    );
-    console.log(`🎫 Tickets Found: ${commitData?.ticketString || "N/A"}`);
+    console.log(`🏷️ Tag: ${effectiveTag}`);
+    console.log(`📅 Release Date: ${effectiveReleaseDate}`);
+    console.log(`🎫 Tickets: ${ticketString}`);
 
-    // Ensure table exists + add unique constraint
+    // Create table without commit-related fields
     console.log("🧱 Ensuring table exists...");
     await pool.query(`
       CREATE TABLE IF NOT EXISTS dora_release_info (
@@ -128,17 +105,12 @@ async function storeGitTagAndJiraIssues() {
         release_date TIMESTAMPTZ NOT NULL,
         project_name VARCHAR(255),
         environment VARCHAR(50),
-        commit_sha VARCHAR(100),
-        commit_author VARCHAR(255),
-        commit_email VARCHAR(255),
-        commit_date TIMESTAMPTZ,
-        commit_message TEXT,
         inserted_at TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE(tag, environment, ticket)
       );
     `);
 
-    console.log("💾 Inserting/Updating release info...");
+    console.log("💾 Inserting / Updating...");
 
     const insertQuery = `
       INSERT INTO dora_release_info (
@@ -146,46 +118,30 @@ async function storeGitTagAndJiraIssues() {
         ticket,
         release_date,
         project_name,
-        environment,
-        commit_sha,
-        commit_author,
-        commit_email,
-        commit_date,
-        commit_message
+        environment
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (tag, environment, ticket)
       DO UPDATE SET 
-        release_date   = EXCLUDED.release_date,
-        project_name   = EXCLUDED.project_name,
-        commit_sha     = EXCLUDED.commit_sha,
-        commit_author  = EXCLUDED.commit_author,
-        commit_email   = EXCLUDED.commit_email,
-        commit_date    = EXCLUDED.commit_date,
-        commit_message = EXCLUDED.commit_message;
+        release_date = EXCLUDED.release_date,
+        project_name = EXCLUDED.project_name;
     `;
 
     await pool.query(insertQuery, [
       effectiveTag,
-      commitData?.ticketString || "N/A",
+      ticketString,
       effectiveReleaseDate,
-      commitData?.repo || "unknown",
+      getRepoName(),
       environment,
-      commitData?.sha || null,
-      commitData?.author || null,
-      commitData?.email || null,
-      commitData?.date || null,
-      commitData?.message || null,
     ]);
 
-    console.log("✨ Inserted or updated release info for:", effectiveTag);
+    console.log("✨ Saved release info:", effectiveTag);
 
   } catch (err) {
-    console.error("❌ Error storing release data:", err.message);
+    console.error("❌ Error:", err.message);
   } finally {
-    console.log("🔌 Closing DB connection...");
+    console.log("🔌 Closing connection...");
     await pool.end();
-    console.log("👋 Done.");
     process.exit(0);
   }
 }
