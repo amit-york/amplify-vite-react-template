@@ -12,6 +12,10 @@ frontend:
     build:
       commands:
         - npm run build
+        # 🔧 Install PostgreSQL client (required for DoraMetrics)
+        - echo "🔧 Installing PostgreSQL client..."
+        - yum install -y postgresql
+        - psql --version
 
     postBuild:
       commands:
