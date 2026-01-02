@@ -29,7 +29,9 @@ frontend:
         - echo "📌 PROJECT_NAME = $PROJECT_NAME"
         - |
           echo "🚀 Running Dora script for branch: $AWS_BRANCH"
-          npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
+          chmod +x ./dorametrics.sh
+          ./dorametrics.sh || echo "⚠️ DoraMetrics script failed — continuing build..."
+        #  npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
 
   artifacts:
     baseDirectory: dist
