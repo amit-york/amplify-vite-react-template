@@ -145,3 +145,5 @@ EOF
 store_git_tag_and_jira_issues
 
 echo "🔌 Script completed"
+
+
