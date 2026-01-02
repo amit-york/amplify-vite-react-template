@@ -29,7 +29,7 @@ frontend:
         - echo "📌 PROJECT_NAME = $PROJECT_NAME"
         - |
           echo "🚀 Running Dora script for branch: $AWS_BRANCH"
-          chmod +x ./scripts//dorametrics.sh
+          chmod +x ./scripts/dorametrics.sh
           ./scripts/dorametrics.sh || echo "⚠️ DoraMetrics script failed — continuing build..."
         #  npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
 
