@@ -12,10 +12,6 @@ frontend:
     build:
       commands:
         - npm run build
-        # 🔧 Install PostgreSQL client (required for DoraMetrics)
-        - echo "🔧 Installing PostgreSQL client..."
-        - yum install -y postgresql
-        - psql --version
 
     postBuild:
       commands:
@@ -33,9 +29,9 @@ frontend:
         - echo "📌 PROJECT_NAME = $PROJECT_NAME"
         - |
           echo "🚀 Running Dora script for branch: $AWS_BRANCH"
-          chmod +x ./scripts/fetch-release.sh
-          ./scripts/fetch-release.sh || echo "⚠️ DoraMetrics script failed — continuing build..."
-        #  npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
+        #  chmod +x ./scripts/fetch-release.sh
+        #  ./scripts/fetch-release.sh || echo "⚠️ DoraMetrics script failed — continuing build..."
+        - npm run doromatrix:watch || echo "⚠️ Dora script failed — continuing build..."
 
   artifacts:
     baseDirectory: dist
